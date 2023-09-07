@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -27,7 +28,7 @@ type loginResponse struct {
 	Error     string `json:"error"`
 	Message   string `json:"message,omitempty"`
 	Salt      string `json:"salt"`
-	SaltWebUi string `json:"saltwebui"`
+	SaltWebUI string `json:"saltwebui"`
 }
 
 type setDeviceResponse struct {
@@ -39,7 +40,7 @@ type setDeviceResponse struct {
 
 type setDeviceData struct {
 	Led       string `json:"led"`
-	HttpState string `json:"http_state"`
+	HTTPState string `json:"http_state"`
 }
 
 type apiResponse interface {
@@ -71,74 +72,56 @@ func (r setDeviceResponse) GetMessage() string {
 	return r.Message
 }
 
-var (
-	address  = "192.168.100.1"
-	username = "admin"
-	password = "password"
-	led      = false
-)
+type cgaLed struct {
+	client *http.Client
 
-func init() {
-	flag.StringVar(&address, "a", "192.168.100.1", "Address of API")
-	flag.StringVar(&password, "p", "password", "Password for API")
-	flag.StringVar(&username, "u", "admin", "Username for API")
-	flag.BoolVar(&led, "l", false, "Turn led on (true) or off (false)")
-	flag.Parse()
+	address  string
+	username string
+	password string
+	led      bool
 }
 
-func main() {
+func (c *cgaLed) init() {
 	jar, err := cookiejar.New(nil)
 	if err != nil {
 		log.Fatal(err)
 	}
-	client := &http.Client{Jar: jar}
-
-	err = login(client)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	err = setLed(client)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	err = logout(client)
-	if err != nil {
-		log.Fatal(err)
-	}
+	c.client = &http.Client{Jar: jar}
+	c.parseFlags()
 }
 
-func login(client *http.Client) error {
-	res, err := sendSessionLogin(client, "seeksalthash")
-	if err != nil {
-		return err
-	}
-
-	_, err = sendSessionLogin(client, deriveChallenge(res, password))
-	if err != nil {
-		return err
-	}
-
-	err = sendSessionMenu(client)
-	if err != nil {
-		return err
-	}
-
-	return nil
+func (c *cgaLed) parseFlags() {
+	flag.StringVar(&c.address, "a", "192.168.100.1", "Address of API")
+	flag.StringVar(&c.password, "p", "password", "Password for API")
+	flag.StringVar(&c.username, "u", "admin", "Username for API")
+	flag.BoolVar(&c.led, "l", false, "Turn led on (true) or off (false)")
+	flag.Parse()
 }
 
-func logout(client *http.Client) error {
-	res, err := sendHostHostTbl(client)
+func (c *cgaLed) login() error {
+	res, err := c.sendSessionLogin("seeksalthash")
 	if err != nil {
 		return err
 	}
 
-	return sendSessionLogout(client, res.Token)
+	if _, err := c.sendSessionLogin(deriveChallenge(res, c.password)); err != nil {
+		return err
+	}
+
+	return c.sendSessionMenu()
 }
 
-func setLed(client *http.Client) error {
-	res, err := sendSetDevice(client)
+func (c *cgaLed) logout() error {
+	res, err := c.sendHostHostTbl()
+	if err != nil {
+		return err
+	}
+
+	return c.sendSessionLogout(res.Token)
+}
+
+func (c *cgaLed) setLed() error {
+	res, err := c.sendSetDevice()
 	if err != nil {
 		return err
 	}
@@ -148,15 +131,88 @@ func setLed(client *http.Client) error {
 		return err
 	}
 
-	if current != led {
-		return sendSetDeviceSdevice(client, strconv.FormatBool(led), res.Data.HttpState, res.Token)
+	if current != c.led {
+		return c.sendSetDeviceSdevice(res.Data.HTTPState, res.Token)
 	}
 
 	return nil
 }
 
-func sendRequest[T apiResponse](client *http.Client, method string, url string, body io.Reader, token string) (*T, error) {
-	req, err := http.NewRequest(method, url, body)
+func (c *cgaLed) sendHostHostTbl() (*genericResponse, error) {
+	return sendRequest[genericResponse](
+		c.client,
+		http.MethodGet,
+		fmt.Sprintf("http://%s/api/v1/host/hostTbl", c.address),
+		nil,
+		"",
+	)
+}
+
+func (c *cgaLed) sendSessionLogin(password string) (*loginResponse, error) {
+	values := url.Values{}
+	values.Set("username", c.username)
+	values.Set("password", password)
+	// By setting this value an already active session is logged out before the new login attempt
+	values.Set("logout", "true")
+
+	return sendRequest[loginResponse](
+		c.client,
+		http.MethodPost,
+		fmt.Sprintf("http://%s/api/v1/session/login", c.address),
+		strings.NewReader(values.Encode()),
+		"",
+	)
+}
+
+func (c *cgaLed) sendSessionLogout(token string) error {
+	_, err := sendRequest[genericResponse](
+		c.client,
+		http.MethodPost,
+		fmt.Sprintf("http://%s/api/v1/session/logout", c.address),
+		nil,
+		token,
+	)
+	return err
+}
+
+func (c *cgaLed) sendSessionMenu() error {
+	_, err := sendRequest[genericResponse](
+		c.client,
+		http.MethodGet,
+		fmt.Sprintf("http://%s/api/v1/session/menu", c.address),
+		nil,
+		"",
+	)
+	return err
+}
+
+func (c *cgaLed) sendSetDevice() (*setDeviceResponse, error) {
+	return sendRequest[setDeviceResponse](
+		c.client,
+		http.MethodGet,
+		fmt.Sprintf("http://%s/api/v1/set_device", c.address),
+		nil,
+		"",
+	)
+}
+
+func (c *cgaLed) sendSetDeviceSdevice(httpState string, token string) error {
+	values := url.Values{}
+	values.Set("led", strconv.FormatBool(c.led))
+	values.Set("http_state", httpState)
+
+	_, err := sendRequest[genericResponse](
+		c.client,
+		http.MethodPost,
+		fmt.Sprintf("http://%s/api/v1/set_device/Sdevice", c.address),
+		strings.NewReader(values.Encode()),
+		token,
+	)
+	return err
+}
+
+func sendRequest[T apiResponse](client *http.Client, method, u string, body io.Reader, token string) (*T, error) {
+	req, err := http.NewRequestWithContext(context.Background(), method, u, body)
 	if err != nil {
 		return nil, err
 	}
@@ -194,57 +250,27 @@ func sendRequest[T apiResponse](client *http.Client, method string, url string, 
 	return &apiRes, nil
 }
 
-func deriveChallenge(loginRes *loginResponse, password string) string {
-	a := pbkdf2.Key([]byte(password), []byte(loginRes.Salt), 1000, 16, sha256.New)
-	b := pbkdf2.Key([]byte(hex.EncodeToString(a)), []byte(loginRes.SaltWebUi), 1000, 16, sha256.New)
+func deriveChallenge(res *loginResponse, password string) string {
+	const iterations = 1000
+	const keyLen = 16
+	a := pbkdf2.Key([]byte(password), []byte(res.Salt), iterations, keyLen, sha256.New)
+	b := pbkdf2.Key([]byte(hex.EncodeToString(a)), []byte(res.SaltWebUI), iterations, keyLen, sha256.New)
 	return hex.EncodeToString(b)
 }
 
-func sendHostHostTbl(client *http.Client) (*genericResponse, error) {
-	return sendRequest[genericResponse](client, http.MethodGet, fmt.Sprintf("http://%s/api/v1/host/hostTbl", address), nil, "")
-}
+func main() {
+	c := cgaLed{}
+	c.init()
 
-func sendSessionLogin(client *http.Client, password string) (*loginResponse, error) {
-	values := url.Values{}
-	values.Set("username", username)
-	values.Set("password", password)
-	// By setting this value an already active session is logged out before the new login attempt
-	values.Set("logout", "true")
-
-	return sendRequest[loginResponse](client, http.MethodPost, fmt.Sprintf("http://%s/api/v1/session/login", address), strings.NewReader(values.Encode()), "")
-}
-
-func sendSessionLogout(client *http.Client, token string) error {
-	_, err := sendRequest[genericResponse](client, http.MethodPost, fmt.Sprintf("http://%s/api/v1/session/logout", address), nil, token)
-	if err != nil {
-		return err
+	if err := c.login(); err != nil {
+		log.Fatal(err)
 	}
 
-	return nil
-}
-
-func sendSessionMenu(client *http.Client) error {
-	_, err := sendRequest[genericResponse](client, http.MethodGet, fmt.Sprintf("http://%s/api/v1/session/menu", address), nil, "")
-	if err != nil {
-		return err
+	if err := c.setLed(); err != nil {
+		log.Fatal(err)
 	}
 
-	return nil
-}
-
-func sendSetDevice(client *http.Client) (*setDeviceResponse, error) {
-	return sendRequest[setDeviceResponse](client, http.MethodGet, fmt.Sprintf("http://%s/api/v1/set_device", address), nil, "")
-}
-
-func sendSetDeviceSdevice(client *http.Client, led string, httpState string, token string) error {
-	values := url.Values{}
-	values.Set("led", led)
-	values.Set("http_state", httpState)
-
-	_, err := sendRequest[genericResponse](client, http.MethodPost, fmt.Sprintf("http://%s/api/v1/set_device/Sdevice", address), strings.NewReader(values.Encode()), token)
-	if err != nil {
-		return err
+	if err := c.logout(); err != nil {
+		log.Fatal(err)
 	}
-
-	return nil
 }
