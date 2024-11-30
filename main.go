@@ -196,7 +196,7 @@ func (c *cgaLed) sendSetDevice() (*setDeviceResponse, error) {
 	)
 }
 
-func (c *cgaLed) sendSetDeviceSdevice(httpState string, token string) error {
+func (c *cgaLed) sendSetDeviceSdevice(httpState, token string) error {
 	values := url.Values{}
 	values.Set("led", strconv.FormatBool(c.led))
 	values.Set("http_state", httpState)
