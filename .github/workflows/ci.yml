@@ -1,0 +1,49 @@
+name: CI
+
+on:
+  pull_request:
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Install Golang
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Run make lint
+        run: make lint
+
+  check_for_uncommitted_changes:
+    name: Check for uncommitted changes
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Install Golang
+      uses: actions/setup-go@v5
+      with:
+        go-version-file: go.mod
+    - name: Run make fmt
+      run: make fmt
+    - name: Check for uncommitted changes
+      run: |
+        if ! status=$(git status --porcelain) || [ -n "$status" ]; then
+          echo "There are uncommitted changes."
+          echo "${status}"
+          exit 1
+        fi
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    - name: Install Golang
+      uses: actions/setup-go@v5
+      with:
+        go-version-file: go.mod
+    - name: Build cga-led
+      run: make build
