@@ -1,4 +1,5 @@
 # golangci configuration
+# Taken from https://github.com/kubevirt/kubevirt/blob/main/.golangci.yml
 
 linters-settings:
   dupl:
@@ -6,11 +7,9 @@ linters-settings:
   funlen:
     lines: 100
     statements: 50
-  gci:
-    local-prefixes: github.com/0xFelix/cga-led
   goconst:
     min-len: 2
-    min-occurrences: 2
+    min-occurrences: 3
   gocritic:
     enabled-tags:
       - diagnostic
@@ -32,13 +31,20 @@ linters-settings:
         sizeThreshold: 1024
   gocyclo:
     min-complexity: 15
-  gomnd:
-    settings:
-      mnd:
-        # don't include the "operation" and "assign"
-        checks: argument,case,condition,return
+  goimports:
+    local-prefixes: github.com/0xfelix/cga-led
+  mnd:
+    # don't include the "operation" and "assign"
+    checks: argument,case,condition,return
+    ignored-functions:
+      - '^Eventually$'
+      - '^EventuallyWithOffset$'
+      - '^ExpectWithOffset$'
+      - '^console\.ExpectBatch$'
+      - '^console\.RunCommand$'
   govet:
-    check-shadowing: true
+    enable:
+      - shadow
   lll:
     line-length: 140
   maligned:
@@ -54,6 +60,8 @@ linters-settings:
     dot-import-whitelist:
       - "github.com/onsi/ginkgo/v2"
       - "github.com/onsi/gomega"
+  gofumpt:
+    extra-rules: true
 
 linters:
   disable-all: true
@@ -70,9 +78,10 @@ linters:
     - gocritic
     - gocyclo
     - gofmt
+    - gofumpt
     - goheader
     - goimports
-    - gomnd
+    - mnd
     - goprintffuncname
     - gosec
     - gosimple
@@ -88,7 +97,6 @@ linters:
     - stylecheck
     - typecheck
     - unconvert
-    - unparam
     - unused
     - whitespace
 

@@ -8,19 +8,27 @@ clean:
 	rm -rf bin
 
 .PHONY: fmt
-fmt: ## Run go fmt against code.
-	go mod tidy
-	go fmt ./...
+fmt: gofumpt ## Run gofumt against code.
+	go mod tidy -compat=1.23
+	$(GOFUMPT) -w -extra .
 
-.PHONY: vet
-vet: ## Run go vet against code.
-	go vet ./...
+.PHONY: vendor
+vendor:
+	go mod vendor
 
 GOLANGCI_LINT ?= $(LOCALBIN)/golangci-lint
+
 .PHONY: lint
-lint: vet
+lint:
 	test -s $(GOLANGCI_LINT) || curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(LOCALBIN)
 	CGO_ENABLED=0 $(GOLANGCI_LINT) run --timeout 5m
+
+GOFUMPT ?= $(LOCALBIN)/gofumpt
+
+.PHONY: gofumpt
+gofumpt: $(GOFUMPT) ## Download gofumpt locally if necessary.
+$(GOFUMPT): $(LOCALBIN)
+	test -s $(LOCALBIN)/gofumpt || GOBIN=$(LOCALBIN) go install mvdan.cc/gofumpt@latest
 
 .PHONY: build
 build: ## Build binary for host
