@@ -6,5 +6,10 @@ updates:
       interval: "weekly"
     allow:
       - dependency-type: "all"
+    groups:
+      production-dependencies:
+        dependency-type: "production"
+      development-dependencies:
+        dependency-type: "development"
     assignees:
       - "0xFelix"
