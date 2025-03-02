@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"crypto/pbkdf2"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -14,8 +15,6 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
-
-	"golang.org/x/crypto/pbkdf2"
 )
 
 type genericResponse struct {
@@ -104,7 +103,11 @@ func (c *cgaLed) login() error {
 		return err
 	}
 
-	if _, err := c.sendSessionLogin(deriveChallenge(res, c.password)); err != nil {
+	challenge, err := deriveChallenge(res, c.password)
+	if err != nil {
+		return err
+	}
+	if _, err := c.sendSessionLogin(challenge); err != nil {
 		return err
 	}
 
@@ -250,12 +253,18 @@ func sendRequest[T apiResponse](client *http.Client, method, u string, body io.R
 	return &apiRes, nil
 }
 
-func deriveChallenge(res *loginResponse, password string) string {
+func deriveChallenge(res *loginResponse, password string) (string, error) {
 	const iterations = 1000
 	const keyLen = 16
-	a := pbkdf2.Key([]byte(password), []byte(res.Salt), iterations, keyLen, sha256.New)
-	b := pbkdf2.Key([]byte(hex.EncodeToString(a)), []byte(res.SaltWebUI), iterations, keyLen, sha256.New)
-	return hex.EncodeToString(b)
+	a, err := pbkdf2.Key(sha256.New, password, []byte(res.Salt), iterations, keyLen)
+	if err != nil {
+		return "", err
+	}
+	b, err := pbkdf2.Key(sha256.New, hex.EncodeToString(a), []byte(res.SaltWebUI), iterations, keyLen)
+	if err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(b), nil
 }
 
 func main() {

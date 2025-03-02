@@ -9,7 +9,7 @@ clean:
 
 .PHONY: fmt
 fmt: gofumpt ## Run gofumt against code.
-	go mod tidy -compat=1.23
+	go mod tidy -compat=1.24
 	$(GOFUMPT) -w -extra .
 
 .PHONY: vendor
