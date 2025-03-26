@@ -1,3 +1,3 @@
-module cga-led
+module github.com/0xfelix/cga-led
 
 go 1.24

@@ -1,72 +1,12 @@
 # golangci configuration
 # Taken from https://github.com/kubevirt/kubevirt/blob/main/.golangci.yml
 
-linters-settings:
-  dupl:
-    threshold: 100
-  funlen:
-    lines: 100
-    statements: 50
-  goconst:
-    min-len: 2
-    min-occurrences: 3
-  gocritic:
-    enabled-tags:
-      - diagnostic
-      - experimental
-      - opinionated
-      - performance
-      - style
-    disabled-checks:
-      - dupImport # https://github.com/go-critic/go-critic/issues/845
-      - ifElseChain
-      - octalLiteral
-      - paramTypeCombine
-      - whyNoLint
-      - wrapperFunc
-    settings:
-      hugeParam:
-        sizeThreshold: 1024
-      rangeValCopy:
-        sizeThreshold: 1024
-  gocyclo:
-    min-complexity: 15
-  goimports:
-    local-prefixes: github.com/0xfelix/cga-led
-  mnd:
-    # don't include the "operation" and "assign"
-    checks: argument,case,condition,return
-    ignored-functions:
-      - '^Eventually$'
-      - '^EventuallyWithOffset$'
-      - '^ExpectWithOffset$'
-      - '^console\.ExpectBatch$'
-      - '^console\.RunCommand$'
-  govet:
-    enable:
-      - shadow
-  lll:
-    line-length: 140
-  maligned:
-    suggest-new: true
-  misspell:
-    locale: US
-  nolintlint:
-    allow-leading-space: true # don't require machine-readable nolint directives (i.e. with no leading space)
-    allow-unused: false # report any unused nolint directives
-    require-explanation: false # don't require an explanation for nolint directives
-    require-specific: false # don't require nolint directives to be specific about which linter is being skipped
-  stylecheck:
-    dot-import-whitelist:
-      - "github.com/onsi/ginkgo/v2"
-      - "github.com/onsi/gomega"
-  gofumpt:
-    extra-rules: true
-
+version: "2"
 linters:
-  disable-all: true
+  default: none
   enable:
     - bodyclose
+    - copyloopvar
     - dogsled
     - dupl
     - errcheck
@@ -76,29 +16,22 @@ linters:
     - goconst
     - gocritic
     - gocyclo
-    - gofmt
-    - gofumpt
     - goheader
-    - goimports
-    - mnd
     - goprintffuncname
     - gosec
-    - gosimple
     - govet
     - ineffassign
     - lll
     - misspell
+    - mnd
     - nakedret
     - noctx
     - nolintlint
     - rowserrcheck
     - staticcheck
-    - stylecheck
-    - typecheck
     - unconvert
     - unused
     - whitespace
-
   # don't enable:
   # - asciicheck
   # - scopelint
@@ -114,3 +47,89 @@ linters:
   # - testpackage
   # - revive
   # - wsl
+  settings:
+    dupl:
+      threshold: 100
+    funlen:
+      lines: 100
+      statements: 50
+    goconst:
+      min-len: 2
+      min-occurrences: 2
+    gocritic:
+      disabled-checks:
+        - dupImport # https://github.com/go-critic/go-critic/issues/845
+        - ifElseChain
+        - octalLiteral
+        - paramTypeCombine
+        - whyNoLint
+        - wrapperFunc
+      enabled-tags:
+        - diagnostic
+        - experimental
+        - opinionated
+        - performance
+        - style
+      settings:
+        hugeParam:
+          sizeThreshold: 1024
+        rangeValCopy:
+          sizeThreshold: 1024
+    gocyclo:
+      min-complexity: 15
+    govet:
+      enable:
+        - shadow
+    lll:
+      line-length: 140
+    misspell:
+      locale: US
+    mnd:
+      # don't include the "operation" and "assign"
+      checks:
+        - argument
+        - case
+        - condition
+        - return
+      ignored-functions:
+        - ^Eventually$
+        - ^EventuallyWithOffset$
+        - ^ExpectWithOffset$
+        - ^console\.ExpectBatch$
+        - ^console\.RunCommand$
+    nolintlint:
+      require-explanation: false # don't require an explanation for nolint directives
+      require-specific: false # don't require nolint directives to be specific about which linter is being skipped
+      allow-unused: false # report any unused nolint directives
+    staticcheck:
+      dot-import-whitelist:
+        - github.com/onsi/ginkgo/v2
+        - github.com/onsi/gomega
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+formatters:
+  enable:
+    - gofmt
+    - gofumpt
+    - goimports
+  settings:
+    gofumpt:
+      extra-rules: true
+    goimports:
+      local-prefixes:
+        - github.com/0xfelix/cga-led
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
