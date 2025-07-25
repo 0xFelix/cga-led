@@ -1,5 +1,6 @@
 # golangci configuration
 # Taken from https://github.com/kubevirt/kubevirt/blob/main/.golangci.yml
+# and additionally ginkgolinter was enabled.
 
 version: "2"
 linters:
@@ -32,21 +33,7 @@ linters:
     - unconvert
     - unused
     - whitespace
-  # don't enable:
-  # - asciicheck
-  # - scopelint
-  # - gochecknoglobals
-  # - gocognit
-  # - godot
-  # - godox
-  # - goerr113
-  # - interfacer
-  # - maligned
-  # - nestif
-  # - prealloc
-  # - testpackage
-  # - revive
-  # - wsl
+    - ginkgolinter
   settings:
     dupl:
       threshold: 100
@@ -85,7 +72,6 @@ linters:
     misspell:
       locale: US
     mnd:
-      # don't include the "operation" and "assign"
       checks:
         - argument
         - case
@@ -105,6 +91,10 @@ linters:
       dot-import-whitelist:
         - github.com/onsi/ginkgo/v2
         - github.com/onsi/gomega
+      checks:
+        - all
+        - "-QF1001" # exclude 'could apply De Morgan's law'
+        - "-QF1008" # exclude 'could remove embedded field "<field>" from selector'
   exclusions:
     generated: lax
     presets:
